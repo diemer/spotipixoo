@@ -6,13 +6,14 @@ from getSongInfo import getSongInfo
 import requests
 from io import BytesIO
 from PIL import Image
-from rgbmatrix import RGBMatrix, RGBMatrixOptions
 import sys,os
 import configparser
+from pixoo import Pixoo
 
 if len(sys.argv) > 2:
     username = sys.argv[1]
     token_path = sys.argv[2]
+    pixoo_ip_address = sys.argv[3]
 
     # Configuration file    
     dir = os.path.dirname(__file__)
@@ -30,20 +31,9 @@ if len(sys.argv) > 2:
     config = configparser.ConfigParser()
     config.read(filename)
 
-    options = RGBMatrixOptions()
-    options.rows = int(config['DEFAULT']['rows'])
-    options.cols = int(config['DEFAULT']['columns'])
-    options.chain_length = int(config['DEFAULT']['chain_length'])
-    options.parallel = int(config['DEFAULT']['parallel'])
-    options.hardware_mapping = config['DEFAULT']['hardware_mapping']
-    options.gpio_slowdown = int(config['DEFAULT']['gpio_slowdown'])
-    options.brightness = int(config['DEFAULT']['brightness'])
-    options.limit_refresh_rate_hz = int(config['DEFAULT']['refresh_rate'])
-
     default_image = os.path.join(dir, config['DEFAULT']['default_image'])
     print(default_image)
-    matrix = RGBMatrix(options = options)
-
+    pixoo = Pixoo(pixoo_ip_address)
     prevSong    = ""
     currentSong = ""
 
@@ -57,14 +47,22 @@ if len(sys.argv) > 2:
             response = requests.get(imageURL)
             image = Image.open(BytesIO(response.content))
             image.thumbnail((matrix.width, matrix.height), Image.Resampling.LANCZOS)
-            matrix.SetImage(image.convert('RGB'))
+            # save image
+            image.save("current_track.png")
+
+            # call pixoo push
+            pixoo.draw_image("current_track.png")
+            pixoo.push()
+            # matrix.SetImage(image.convert('RGB'))
             prevSong = currentSong
 
           time.sleep(1)
         except Exception as e:
           image = Image.open(default_image)
           image.thumbnail((matrix.width, matrix.height), Image.Resampling.LANCZOS)
-          matrix.SetImage(image.convert('RGB'))
+          image.save("default_image.png")
+          pixoo.draw_image("default_image.png")
+          pixoo.push()
           print(e)
           time.sleep(1)
     except KeyboardInterrupt:
